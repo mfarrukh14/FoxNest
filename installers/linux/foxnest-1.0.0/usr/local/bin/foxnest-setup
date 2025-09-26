@@ -1,0 +1,20 @@
+#!/bin/bash
+# FoxNest environment setup script
+# This script can be sourced to immediately set up the PATH for FoxNest
+
+# Add /usr/local/bin to PATH if not already present
+if [[ ":$PATH:" != *":/usr/local/bin:"* ]]; then
+    export PATH="/usr/local/bin:$PATH"
+    echo "Added /usr/local/bin to PATH"
+fi
+
+# Verify fox command is available
+if command -v fox >/dev/null 2>&1; then
+    echo "✓ FoxNest is ready to use!"
+    echo "Run 'fox --version' to verify installation"
+else
+    echo "⚠ FoxNest not found in PATH. Please:"
+    echo "  1. Restart your terminal"
+    echo "  2. Or run: source /etc/environment"
+    echo "  3. Or logout and login again"
+fi

@@ -1,0 +1,11 @@
+# This is a placeholder for the FoxNest icon
+# In a real build, you would have a proper .ico file here
+# For now, this serves as a reference that an icon should be placed here
+
+# To create a proper icon:
+# 1. Create a 256x256 PNG image with the FoxNest logo
+# 2. Convert it to .ico format using online tools or ImageMagick
+# 3. Replace this file with foxnest.ico
+
+# Example command to create icon with ImageMagick:
+# convert foxnest.png -resize 256x256 -define icon:auto-resize=256,64,48,32,16 foxnest.ico

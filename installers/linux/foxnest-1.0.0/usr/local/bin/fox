@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""
+Fox Command - FoxNest Version Control System
+System-wide installation script
+"""
+
+import sys
+import os
+
+# Add the foxnest library path to Python path
+sys.path.insert(0, '/usr/local/lib/foxnest')
+
+# Import and run the main fox client
+try:
+    from fox_client import main
+    if __name__ == "__main__":
+        main()
+except ImportError as e:
+    print(f"Error: FoxNest libraries not found. Please reinstall FoxNest.")
+    print(f"Details: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"Error running FoxNest: {e}")
+    sys.exit(1)

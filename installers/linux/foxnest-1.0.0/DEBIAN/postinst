@@ -1,0 +1,60 @@
+#!/bin/bash
+# Post-installation script for FoxNest
+
+set -e
+
+echo "Setting up FoxNest..."
+
+# Remove any existing fox installations to avoid conflicts
+rm -f /usr/local/bin/fox /usr/bin/fox ~/.local/bin/fox 2>/dev/null || true
+rm -f /usr/local/bin/fox-server /usr/bin/fox-server 2>/dev/null || true
+
+# Remove old PATH entries that might cause conflicts
+sed -i 's|:/home/[^:]*/.local/bin||g' /etc/environment 2>/dev/null || true
+sed -i 's|/home/[^:]*/.local/bin:||g' /etc/environment 2>/dev/null || true
+
+# Create wrapper script that properly handles Python execution
+cat > /usr/local/bin/fox << 'EOF'
+#!/bin/bash
+# FoxNest wrapper script
+exec python3 /usr/local/lib/foxnest/fox_client.py "$@"
+EOF
+
+cat > /usr/local/bin/fox-server << 'EOF'
+#!/bin/bash
+# FoxNest server wrapper script
+exec python3 /usr/local/lib/foxnest/foxnest_server.py "$@"
+EOF
+
+# Make scripts executable
+chmod +x /usr/local/bin/fox
+chmod +x /usr/local/bin/fox-server
+
+# Create symlinks in /usr/bin for system-wide access
+ln -sf /usr/local/bin/fox /usr/bin/fox
+ln -sf /usr/local/bin/fox-server /usr/bin/fox-server
+
+# Ensure /usr/local/bin is in the system PATH
+if ! grep -q "/usr/local/bin" /etc/environment 2>/dev/null; then
+    echo "Adding /usr/local/bin to system PATH..."
+    if [ -f /etc/environment ] && grep -q "PATH=" /etc/environment; then
+        sed -i 's|PATH="\(.*\)"|PATH="/usr/local/bin:\1"|' /etc/environment
+    else
+        echo 'PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"' >> /etc/environment
+    fi
+fi
+
+# Update current shell environment
+export PATH="/usr/local/bin:$PATH"
+
+echo "FoxNest installed successfully!"
+echo ""
+echo "IMPORTANT: Please install Python dependencies:"
+echo "  sudo apt install python3-requests python3-flask"
+echo ""
+echo "The 'fox' command is now available system-wide!"
+echo "If 'fox' command is not found, restart your terminal or run: source /etc/environment"
+echo ""
+echo "Test installation: fox --version"
+
+exit 0

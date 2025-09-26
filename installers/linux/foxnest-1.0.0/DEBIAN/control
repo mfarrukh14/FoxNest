@@ -1,0 +1,13 @@
+Package: foxnest
+Version: 1.0.0
+Section: vcs
+Priority: optional
+Architecture: all
+Depends: python3 (>= 3.6), python3-requests, python3-flask
+Maintainer: FoxNest Team <support@foxnest.dev>
+Description: FoxNest Version Control System
+ FoxNest is a distributed version control system with simple commands.
+ It provides Git-like functionality with an easy-to-use interface.
+ .
+ This package installs the 'fox' command-line tool system-wide.
+Homepage: https://github.com/foxnest/foxnest

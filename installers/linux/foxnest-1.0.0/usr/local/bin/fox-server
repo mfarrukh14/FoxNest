@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""
+FoxNest Server - Version Control Server
+System-wide installation script
+"""
+
+import sys
+import os
+
+# Add the foxnest library path to Python path
+sys.path.insert(0, '/usr/local/lib/foxnest')
+
+# Import and run the foxnest server
+try:
+    import foxnest_server
+    if __name__ == "__main__":
+        foxnest_server.app.run(host='0.0.0.0', port=5000, debug=False)
+except ImportError as e:
+    print(f"Error: FoxNest server libraries not found. Please reinstall FoxNest.")
+    print(f"Details: {e}")
+    sys.exit(1)
+except Exception as e:
+    print(f"Error running FoxNest server: {e}")
+    sys.exit(1)

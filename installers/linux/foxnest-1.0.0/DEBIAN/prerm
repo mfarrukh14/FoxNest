@@ -1,0 +1,23 @@
+#!/bin/bash
+# Pre-removal script for FoxNest
+
+set -e
+
+echo "Removing FoxNest..."
+
+# Remove symlinks from /usr/bin
+if [ -L /usr/bin/fox ]; then
+    rm -f /usr/bin/fox
+fi
+
+if [ -L /usr/bin/fox-server ]; then
+    rm -f /usr/bin/fox-server
+fi
+
+# Note: We don't remove /usr/local/bin from PATH as other programs might need it
+# and it's a standard system directory that should be in PATH anyway
+
+echo "FoxNest removal completed."
+echo "Note: You may need to restart your terminal for PATH changes to take effect."
+
+exit 0
