@@ -40,6 +40,7 @@ class CreateRepositoryRequest(BaseModel):
 
 class PushCommitRequest(BaseModel):
     commit: Dict[str, Any]
+    archive: Optional[bool] = False
 
 class RepositoryResponse(BaseModel):
     success: bool
@@ -264,6 +265,13 @@ async def push_commit(repo_id: str, request: PushCommitRequest, db: Session = De
         if not repository:
             raise HTTPException(status_code=404, detail="Repository not found")
         
+        # Check if repository is archived and user is trying regular push
+        if repository.is_archived and not request.archive:
+            raise HTTPException(
+                status_code=400, 
+                detail="Repository is archived. Use 'fox push --archive' to push to archived repository."
+            )
+        
         # Add repository_id to commit data
         commit_data = request.commit.copy()
         commit_data["repository_id"] = repo_id
@@ -277,9 +285,26 @@ async def push_commit(repo_id: str, request: PushCommitRequest, db: Session = De
             f"Pushed commit: {commit.message[:50]}...", repo_id
         )
         
+        # Handle archiving based on flag
+        if request.archive:
+            # Archive repository if --archive flag is used
+            RepositoryCRUD.archive_repository(db, repo_id, reason="Archived via push --archive command")
+        elif repository.is_archived:
+            # This case should never happen due to the check above, but kept for safety
+            pass
+        # Note: We don't unarchive on regular push - archived repos stay archived
+        # User must use --archive flag to push to archived repos
+        
         return {"success": True, "commit_id": commit.id}
     
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
+        # Log and raise other exceptions
+        import traceback
+        print(f"Error in push_commit: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.get("/api/repository/{repo_id}/pull")

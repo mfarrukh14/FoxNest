@@ -84,7 +84,7 @@ class FoxNestAPI {
     return repositories.map(repo => ({
       id: repo.id,
       name: repo.name,
-      description: `Repository owned by ${repo.owner}`,
+      description: repo.description || `Repository owned by ${repo.owner}`,
       language: 'Unknown', // You might want to detect this from files
       languageColor: '#6c757d',
       commits: repo.commits?.length || 0,
@@ -94,12 +94,17 @@ class FoxNestAPI {
       branches: 1, // Not implemented in server yet
       size: '0 KB', // Calculate from actual data
       lastUpdate: this.formatDate(repo.created_at),
-      status: 'active',
+      status: repo.is_archived ? 'archived' : 'active',
       visibility: 'public', // Default for now
       tags: [],
       owner: repo.owner,
       createdAt: repo.created_at,
-      head: repo.head
+      head: repo.head,
+      is_archived: repo.is_archived || false,
+      archived_at: repo.archived_at,
+      archived_reason: repo.archived_reason,
+      g1_coordinator: repo.g1_coordinator,
+      tested: repo.tested
     }))
   }
 

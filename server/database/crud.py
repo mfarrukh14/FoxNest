@@ -106,6 +106,21 @@ class RepositoryCRUD:
         return repository
     
     @staticmethod
+    def unarchive_repository(db: Session, repo_id: str) -> Repository:
+        """Unarchive a repository (move back to active repositories)"""
+        repository = RepositoryCRUD.get_repository(db, repo_id)
+        if not repository:
+            raise ValueError("Repository not found")
+        
+        repository.is_archived = False
+        repository.archived_at = None
+        repository.archived_reason = None
+        
+        db.commit()
+        db.refresh(repository)
+        return repository
+    
+    @staticmethod
     def update_repository_details(db: Session, repo_id: str, g1_coordinator: str = None, 
                                 tested: bool = None, instruction_manual_path: str = None, 
                                 instruction_manual_filename: str = None) -> Repository:

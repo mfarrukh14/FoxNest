@@ -6,20 +6,36 @@ This repository contains the FoxNest version control platform:
 - FoxNest Server (FastAPI + SQL backend) – central coordination + metadata store
 - Admin / Archive Frontend (React + Vite) – repository visibility & domain fields (G1 Coordinator, Tested status, Instruction Manual PDF)
 
+### Key Features
+
+✨ **Git-like Storage Optimization**
+- Zlib compression for all objects (~50% size reduction)
+- Pack files for efficient storage
+- Subdirectory structure for performance
+- Delta encoding infrastructure ready
+- See [OPTIMIZATION.md](./OPTIMIZATION.md) for details
+
 ### Key Documents
 
 - [FoxNest vs Git & GitHub Comparison](./COMPARISON.md)
+- [Storage Optimization Guide](./OPTIMIZATION.md)
 - `installers/README.md` – platform-specific packaging
 
 ### Quick Start (CLI)
 
-```f
+```bash
 fox init --username alice --repo-name demo
 echo "Hello" > hello.txt
 fox add hello.txt
 fox commit -m "Initial commit"
 fox set origin 192.168.15.237:5000
 fox push
+
+# Optimize storage
+fox gc
+
+# Analyze repository size
+python3 analyze_storage.py
 ```
 
 ### Server

@@ -1,105 +1,48 @@
-import React,{ useState } from 'react'
-import { FiFolder, FiGitCommit, FiUsers, FiStar, FiEye, FiGitBranch, FiClock, FiArchive, FiEdit3, FiTrash2, FiWifi, FiWifiOff } from 'react-icons/fi'
+import React, { useState, useEffect } from 'react'
+import { FiFolder, FiGitCommit, FiUsers, FiStar, FiEye, FiGitBranch, FiClock, FiArchive, FiEdit3, FiTrash2, FiWifi, FiWifiOff, FiLoader } from 'react-icons/fi'
 import GlassCard from '../components/ui/GlassCard'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import { useRepositories, useServerHealth } from '../hooks/useApi'
+import api from '../utils/api'
 
 const Repositories = () => {
   const [selectedRepo, setSelectedRepo] = useState(null)
   const [viewMode, setViewMode] = useState('grid') // 'grid' or 'list'
+  const [repositories, setRepositories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const repositories = [
-    {
-      id: 1,
-      name: 'react-dashboard',
-      description: 'Modern React dashboard with TypeScript and advanced data visualization components',
-      language: 'TypeScript',
-      languageColor: '#3178c6',
-      commits: 156,
-      contributors: 4,
-      stars: 23,
-      watchers: 8,
-      branches: 6,
-      size: '2.4 MB',
-      lastUpdate: '2 hours ago',
-      status: 'active',
-      visibility: 'public',
-      tags: ['react', 'typescript', 'dashboard'],
-      files: [
-        { name: 'src/components', type: 'folder', files: 12 },
-        { name: 'src/pages', type: 'folder', files: 8 },
-        { name: 'src/utils', type: 'folder', files: 5 },
-        { name: 'package.json', type: 'file', size: '2.1 KB' },
-        { name: 'README.md', type: 'file', size: '3.4 KB' },
-        { name: 'tsconfig.json', type: 'file', size: '1.2 KB' }
-      ]
-    },
-    {
-      id: 2,
-      name: 'api-server',
-      description: 'RESTful API server built with Node.js and Express, featuring authentication and database integration',
-      language: 'JavaScript',
-      languageColor: '#f1e05a',
-      commits: 89,
-      contributors: 3,
-      stars: 15,
-      watchers: 5,
-      branches: 4,
-      size: '1.8 MB',
-      lastUpdate: '1 day ago',
-      status: 'active',
-      visibility: 'private',
-      tags: ['nodejs', 'express', 'api'],
-      files: [
-        { name: 'src/routes', type: 'folder', files: 8 },
-        { name: 'src/models', type: 'folder', files: 5 },
-        { name: 'src/middleware', type: 'folder', files: 3 },
-        { name: 'server.js', type: 'file', size: '1.5 KB' },
-        { name: 'package.json', type: 'file', size: '1.8 KB' }
-      ]
-    },
-    {
-      id: 3,
-      name: 'mobile-app',
-      description: 'Cross-platform mobile application built with React Native',
-      language: 'React Native',
-      languageColor: '#61dafb',
-      commits: 67,
-      contributors: 2,
-      stars: 8,
-      watchers: 3,
-      branches: 3,
-      size: '3.2 MB',
-      lastUpdate: '3 days ago',
-      status: 'active',
-      visibility: 'public',
-      tags: ['react-native', 'mobile'],
-      files: [
-        { name: 'src/screens', type: 'folder', files: 10 },
-        { name: 'src/components', type: 'folder', files: 15 },
-        { name: 'App.js', type: 'file', size: '2.1 KB' }
-      ]
-    },
-    {
-      id: 4,
-      name: 'legacy-system',
-      description: 'Legacy system components and utilities - no longer actively maintained',
-      language: 'Python',
-      languageColor: '#3572A5',
-      commits: 234,
-      contributors: 6,
-      stars: 45,
-      watchers: 12,
-      branches: 8,
-      size: '5.6 MB',
-      lastUpdate: '6 months ago',
-      status: 'archived',
-      visibility: 'public',
-      tags: ['python', 'legacy'],
-      files: []
+  useEffect(() => {
+    fetchRepositories()
+  }, [])
+
+  const fetchRepositories = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Fetch all repositories
+      const response = await api.listAllRepositories()
+      
+      if (response.success) {
+        // Filter only non-archived repositories
+        const activeRepos = response.repositories.filter(repo => repo.is_archived !== true)
+        
+        // Transform server data to match our component expectations
+        const transformedRepos = api.transformRepositoryData(activeRepos)
+        
+        setRepositories(transformedRepos)
+      } else {
+        setError('Failed to fetch repositories')
+      }
+    } catch (err) {
+      setError(`Error connecting to server: ${err.message}`)
+      console.error('Error fetching repositories:', err)
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
 
   const handleArchive = (repoId) => {
     // Handle archiving logic here
@@ -111,6 +54,23 @@ const Repositories = () => {
   }
 
   const filteredRepos = repositories.filter(repo => repo.status === 'active')
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <FiLoader className="w-8 h-8 text-white animate-spin" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-400 mb-4">{error}</p>
+        <Button onClick={fetchRepositories}>Retry</Button>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

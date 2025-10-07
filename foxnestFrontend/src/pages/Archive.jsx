@@ -42,14 +42,18 @@ const Archive = () => {
       const response = await api.listAllRepositories()
       
       if (response.success) {
+        // Filter only archived repositories
+        const archivedRepos = response.repositories.filter(repo => repo.is_archived === true)
+        
         // Transform server data to match our component expectations
-        const transformedRepos = api.transformRepositoryData(response.repositories).map((repo, index) => ({
+        const transformedRepos = api.transformRepositoryData(archivedRepos).map((repo, index) => ({
           ...repo,
           // Add archive-specific fields for display
-          archivedDate: new Date(Date.now() - (index + 1) * 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          archivedDate: repo.archived_at ? new Date(repo.archived_at).toISOString().split('T')[0] : 'Unknown',
           archivedBy: repo.owner,
-          reason: getArchiveReason(repo.name),
-          tags: getTags(repo.name)
+          reason: repo.archived_reason || getArchiveReason(repo.name),
+          tags: getTags(repo.name),
+          is_archived: true
         }))
         
         setRepositories(transformedRepos)

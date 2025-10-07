@@ -2,6 +2,17 @@
 
 This directory contains the files needed to create and install FoxNest on Windows systems.
 
+## 🎉 New in Version 1.0.0
+
+**Git-like Storage Optimizations:**
+- ✅ Zlib compression for all objects (~50% size reduction)
+- ✅ Subdirectory structure for better performance
+- ✅ Pack files for efficient storage
+- ✅ New `fox gc` command for garbage collection
+- ✅ Delta encoding infrastructure ready
+
+See `OPTIMIZATION.md` in the root directory for details.
+
 ## Prerequisites
 
 - Windows 10 or later

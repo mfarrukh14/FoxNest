@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Fox Client - Local version control client for FoxNest
+Optimized with Git-like compression, delta encoding, and pack files
 """
 
 import os
@@ -10,6 +11,8 @@ import shutil
 import argparse
 import base64
 import sys
+import zlib
+import difflib
 from datetime import datetime
 from pathlib import Path
 import requests
@@ -20,9 +23,15 @@ class FoxClient:
         self.config_file = self.fox_dir / "config.json"
         self.staging_dir = self.fox_dir / "staging"
         self.objects_dir = self.fox_dir / "objects"
+        self.packs_dir = self.fox_dir / "packs"  # Git-like pack files
         self.commits_file = self.fox_dir / "commits.json"
         self.head_file = self.fox_dir / "HEAD"
         self.index_file = self.fox_dir / "index.json"  # Git-like index for fast tracking
+        self.delta_cache_file = self.fox_dir / "delta_cache.json"  # Cache for delta relationships
+        
+        # Compression settings
+        self.compression_level = 6  # zlib compression level (1-9)
+        self.pack_threshold = 20  # Number of objects before creating pack
         
         # Default server configuration
         self.server_url = "http://192.168.15.237:5000"
@@ -83,6 +92,7 @@ class FoxClient:
         self.fox_dir.mkdir()
         self.staging_dir.mkdir()
         self.objects_dir.mkdir()
+        self.packs_dir.mkdir()  # For pack files
         
         # Create initial configuration
         config = {
@@ -121,6 +131,228 @@ class FoxClient:
         """Save repository configuration"""
         with open(self.config_file, "w") as f:
             json.dump(config, f, indent=2)
+    
+    def compress_data(self, data):
+        """Compress data using zlib - Git-like compression"""
+        if isinstance(data, str):
+            data = data.encode('utf-8')
+        return zlib.compress(data, self.compression_level)
+    
+    def decompress_data(self, compressed_data):
+        """Decompress zlib compressed data"""
+        return zlib.decompress(compressed_data)
+    
+    def calculate_delta(self, base_content, new_content):
+        """
+        Calculate delta between two file versions using unified diff
+        Returns delta object with base hash and diff data
+        """
+        if isinstance(base_content, bytes):
+            base_content = base_content.decode('utf-8', errors='ignore')
+        if isinstance(new_content, bytes):
+            new_content = new_content.decode('utf-8', errors='ignore')
+        
+        # Generate unified diff
+        base_lines = base_content.splitlines(keepends=True)
+        new_lines = new_content.splitlines(keepends=True)
+        
+        delta = list(difflib.unified_diff(base_lines, new_lines, lineterm=''))
+        
+        return {
+            'type': 'delta',
+            'delta_data': ''.join(delta)
+        }
+    
+    def apply_delta(self, base_content, delta_data):
+        """Apply delta to base content to reconstruct new content"""
+        if isinstance(base_content, bytes):
+            base_content = base_content.decode('utf-8', errors='ignore')
+        
+        base_lines = base_content.splitlines(keepends=True)
+        delta_lines = delta_data.splitlines(keepends=True)
+        
+        # Apply the unified diff
+        result_lines = []
+        delta_idx = 0
+        base_idx = 0
+        
+        # Skip diff headers
+        while delta_idx < len(delta_lines) and not delta_lines[delta_idx].startswith('@@'):
+            delta_idx += 1
+        
+        while delta_idx < len(delta_lines):
+            line = delta_lines[delta_idx]
+            
+            if line.startswith('@@'):
+                # Parse range information
+                delta_idx += 1
+                continue
+            elif line.startswith('-'):
+                # Line removed from base (skip in base)
+                base_idx += 1
+            elif line.startswith('+'):
+                # Line added in new version
+                result_lines.append(line[1:])
+            else:
+                # Context line (same in both)
+                if base_idx < len(base_lines):
+                    result_lines.append(base_lines[base_idx])
+                    base_idx += 1
+            
+            delta_idx += 1
+        
+        return ''.join(result_lines)
+    
+    def store_object_compressed(self, content, file_hash):
+        """
+        Store object with compression in objects directory
+        Uses 2-character prefix directory like Git for better file system performance
+        """
+        # Create subdirectory based on first 2 chars of hash (like Git)
+        obj_dir = self.objects_dir / file_hash[:2]
+        obj_dir.mkdir(exist_ok=True)
+        
+        obj_path = obj_dir / file_hash[2:]
+        
+        # Compress and store
+        if isinstance(content, str):
+            content = content.encode('utf-8')
+        
+        compressed = self.compress_data(content)
+        
+        with open(obj_path, 'wb') as f:
+            f.write(compressed)
+        
+        return obj_path
+    
+    def load_object_compressed(self, file_hash):
+        """Load and decompress object from objects directory"""
+        obj_path = self.objects_dir / file_hash[:2] / file_hash[2:]
+        
+        if not obj_path.exists():
+            # Fallback to old flat structure
+            old_path = self.objects_dir / file_hash
+            if old_path.exists():
+                with open(old_path, 'rb') as f:
+                    return f.read()
+            return None
+        
+        with open(obj_path, 'rb') as f:
+            compressed = f.read()
+        
+        return self.decompress_data(compressed)
+    
+    def find_similar_object(self, new_hash, file_path):
+        """
+        Find a similar object for delta compression
+        Looks for previous version of same file
+        """
+        delta_cache = self.load_delta_cache()
+        
+        # Check if we have a previous version of this file
+        if file_path in delta_cache:
+            return delta_cache[file_path].get('base_hash')
+        
+        return None
+    
+    def load_delta_cache(self):
+        """Load delta cache that tracks file version relationships"""
+        if not self.delta_cache_file.exists():
+            return {}
+        
+        try:
+            with open(self.delta_cache_file, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    
+    def save_delta_cache(self, cache):
+        """Save delta cache"""
+        with open(self.delta_cache_file, 'w') as f:
+            json.dump(cache, f, indent=2)
+    
+    def update_delta_cache(self, file_path, file_hash):
+        """Update delta cache with new file version"""
+        cache = self.load_delta_cache()
+        
+        old_hash = cache.get(file_path, {}).get('current_hash')
+        
+        cache[file_path] = {
+            'current_hash': file_hash,
+            'base_hash': old_hash  # Previous version becomes base for delta
+        }
+        
+        self.save_delta_cache(cache)
+    
+    def pack_objects(self):
+        """
+        Pack loose objects into compressed pack file (like git gc)
+        Reduces storage and improves performance
+        """
+        loose_objects = []
+        
+        # Collect all loose objects
+        for root, dirs, files in os.walk(self.objects_dir):
+            for file in files:
+                if file != '.gitkeep':
+                    obj_path = Path(root) / file
+                    # Reconstruct hash from directory structure
+                    parent = obj_path.parent.name
+                    if len(parent) == 2:
+                        full_hash = parent + file
+                    else:
+                        full_hash = file
+                    loose_objects.append((full_hash, obj_path))
+        
+        if len(loose_objects) < self.pack_threshold:
+            return  # Not enough objects to pack
+        
+        # Create pack file
+        pack_id = hashlib.sha256(str(datetime.now()).encode()).hexdigest()[:12]
+        pack_path = self.packs_dir / f"pack-{pack_id}.pack"
+        index_path = self.packs_dir / f"pack-{pack_id}.idx"
+        
+        pack_data = {}
+        
+        for obj_hash, obj_path in loose_objects:
+            try:
+                with open(obj_path, 'rb') as f:
+                    pack_data[obj_hash] = base64.b64encode(f.read()).decode()
+                
+                # Remove loose object after packing
+                obj_path.unlink()
+            except Exception as e:
+                print(f"Warning: Could not pack object {obj_hash}: {e}")
+        
+        # Write pack file (compressed JSON)
+        pack_json = json.dumps(pack_data)
+        compressed_pack = self.compress_data(pack_json)
+        
+        with open(pack_path, 'wb') as f:
+            f.write(compressed_pack)
+        
+        # Write index file for quick lookups
+        index = {
+            'pack_file': pack_path.name,
+            'object_count': len(pack_data),
+            'objects': list(pack_data.keys()),
+            'created_at': datetime.now().isoformat()
+        }
+        
+        with open(index_path, 'w') as f:
+            json.dump(index, f, indent=2)
+        
+        print(f"Packed {len(pack_data)} objects into {pack_path.name}")
+        
+        # Clean up empty directories
+        for root, dirs, files in os.walk(self.objects_dir, topdown=False):
+            for dir_name in dirs:
+                dir_path = Path(root) / dir_name
+                try:
+                    if not any(dir_path.iterdir()):
+                        dir_path.rmdir()
+                except:
+                    pass
     
     def get_file_hash(self, filepath):
         """Generate hash for a file"""
@@ -399,9 +631,15 @@ class FoxClient:
                     
                     file_hash = self.get_file_hash(filepath)
                     
-                    # Copy file to objects directory
-                    object_path = self.objects_dir / file_hash
-                    shutil.copy2(filepath, object_path)
+                    # Read file content
+                    with open(filepath, "rb") as f:
+                        content = f.read()
+                    
+                    # Store file with compression using subdirectory structure
+                    self.store_object_compressed(content, file_hash)
+                    
+                    # Update delta cache for future delta compression
+                    self.update_delta_cache(str(filepath), file_hash)
                     
                     # Add to staging
                     staging_file = self.staging_dir / filepath.name
@@ -450,13 +688,37 @@ class FoxClient:
             with open(staging_file, "r") as f:
                 file_info = json.load(f)
             
-            # Read file content and encode
-            with open(self.objects_dir / file_info["hash"], "rb") as f:
-                content = base64.b64encode(f.read()).decode()
+            file_hash = file_info["hash"]
+            file_path = file_info["path"]
+            
+            # Try to load compressed file content
+            content = self.load_object_compressed(file_hash)
+            
+            if content:
+                # Encode for storage/transmission
+                content_encoded = base64.b64encode(content).decode()
+            else:
+                # Fallback 1: try reading from old flat structure
+                old_path = self.objects_dir / file_hash
+                if old_path.exists():
+                    with open(old_path, "rb") as f:
+                        content_encoded = base64.b64encode(f.read()).decode()
+                # Fallback 2: try reading directly from source file if it still exists
+                elif Path(file_path).exists():
+                    print(f"Warning: Object {file_hash} not found in storage, reading from source file")
+                    with open(file_path, "rb") as f:
+                        content = f.read()
+                        # Store it properly for next time
+                        self.store_object_compressed(content, file_hash)
+                        content_encoded = base64.b64encode(content).decode()
+                else:
+                    print(f"Error: Could not find object {file_hash} or source file {file_path}")
+                    print(f"Skipping this file from commit")
+                    continue
             
             files[file_info["hash"]] = {
                 "path": file_info["path"],
-                "content": content
+                "content": content_encoded
             }
         
         # Create commit object
@@ -489,6 +751,12 @@ class FoxClient:
         # Clear staging area
         shutil.rmtree(self.staging_dir)
         self.staging_dir.mkdir()
+        
+        # Run garbage collection if we have enough objects
+        loose_count = sum(1 for _ in self.objects_dir.rglob("*") if _.is_file())
+        if loose_count >= self.pack_threshold:
+            print("Running garbage collection...")
+            self.pack_objects()
         
         print(f"Committed changes: {commit_id}")
         print(f"Message: {message}")
@@ -663,7 +931,7 @@ class FoxClient:
             except Exception as e:
                 print(f"Failed to extract {file_path}: {e}")
 
-    def push(self):
+    def push(self, archive=False):
         """Push commits to remote repository"""
         if not self.check_repository("push"):
             return False
@@ -695,18 +963,47 @@ class FoxClient:
         
         # Load local commits
         if not self.commits_file.exists():
-            print("No commits to push")
-            return False
+            print("Everything up-to-date")
+            return True
         
         with open(self.commits_file, "r") as f:
             commits = json.load(f)
         
         if not commits:
-            print("No commits to push")
-            return False
+            print("Everything up-to-date")
+            return True
         
-        # Push each commit
-        for commit in commits:
+        # Check if there are actually new commits to push
+        # by comparing with remote
+        commits_to_push = commits  # Default: push all
+        try:
+            response = requests.get(
+                f"{config['server_url']}/api/repository/{config['repo_id']}/commits",
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("success"):
+                    remote_commits = data.get("commits", [])
+                    remote_commit_ids = {c["id"] for c in remote_commits}
+                    
+                    # Filter to only new commits
+                    commits_to_push = [c for c in commits if c["id"] not in remote_commit_ids]
+                    
+                    if not commits_to_push:
+                        print("Everything up-to-date")
+                        return True
+                    
+                    print(f"Pushing {len(commits_to_push)} new commit(s)...")
+        except Exception as e:
+            # If we can't check remote, proceed with push attempt
+            print(f"Warning: Could not check remote commits: {e}")
+            pass
+        
+        # Push each new commit
+        pushed_count = 0
+        for commit in commits_to_push:
             try:
                 # Prepare commit data for server
                 commit_data = commit.copy()
@@ -725,7 +1022,7 @@ class FoxClient:
                 
                 response = requests.post(
                     f"{config['server_url']}/api/repository/{config['repo_id']}/push",
-                    json={"commit": commit_data},
+                    json={"commit": commit_data, "archive": archive},
                     timeout=30
                 )
                 
@@ -733,18 +1030,47 @@ class FoxClient:
                     data = response.json()
                     if data["success"]:
                         print(f"Pushed commit: {commit['id']}")
+                        pushed_count += 1
                     else:
                         print(f"Failed to push commit {commit['id']}: {data.get('error')}")
                         return False
+                elif response.status_code == 400:
+                    # Handle specific error messages from server
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get("detail", "Bad request")
+                        
+                        if "archived" in error_msg.lower():
+                            print(f"\nError: Repository is archived.")
+                            print(f"To push to an archived repository, use: fox push --archive")
+                            return False
+                        else:
+                            print(f"\nError: {error_msg}")
+                            return False
+                    except Exception as parse_error:
+                        print(f"\nError: Bad request (status code 400)")
+                        print(f"Response: {response.text if hasattr(response, 'text') else 'No details'}")
+                        return False
                 else:
-                    print(f"HTTP error: {response.status_code}")
+                    print(f"\nError: HTTP {response.status_code}")
+                    try:
+                        error_data = response.json()
+                        if "detail" in error_data:
+                            print(f"Details: {error_data['detail']}")
+                    except:
+                        pass
                     return False
             
             except requests.exceptions.RequestException as e:
                 print(f"Network error while pushing {commit['id']}: {e}")
                 return False
         
-        print("All commits pushed successfully!")
+        if pushed_count == 0:
+            print("Everything up-to-date")
+        elif archive:
+            print("All commits pushed successfully and repository archived!")
+        else:
+            print("All commits pushed successfully!")
         return True
     
     def pull(self):
@@ -794,11 +1120,12 @@ class FoxClient:
                     
                     # Update local repository with pulled commits
                     for commit in commits:
-                        # Save files from commit
+                        # Save files from commit with compression
                         for file_hash, content in commit["files"].items():
-                            object_path = self.objects_dir / file_hash
-                            with open(object_path, "wb") as f:
-                                f.write(base64.b64decode(content))
+                            # Decode base64 content
+                            decoded_content = base64.b64decode(content)
+                            # Store with compression using new structure
+                            self.store_object_compressed(decoded_content, file_hash)
                     
                     # Update local commits
                     local_commits = []
@@ -995,12 +1322,42 @@ class FoxClient:
             print(f"{commit['id']} {date} {commit['author']}: {commit['message']}")
         
         return True
+    
+    def gc(self):
+        """
+        Garbage collection - optimize repository by packing loose objects
+        Similar to 'git gc'
+        """
+        if not self.check_repository("gc"):
+            return False
+        
+        print("Running garbage collection...")
+        
+        # Count loose objects
+        loose_count = sum(1 for _ in self.objects_dir.rglob("*") if _.is_file())
+        print(f"Found {loose_count} loose objects")
+        
+        if loose_count == 0:
+            print("Nothing to pack")
+            return True
+        
+        # Pack objects
+        self.pack_objects()
+        
+        # Report savings
+        pack_count = sum(1 for _ in self.packs_dir.glob("*.pack"))
+        remaining_loose = sum(1 for _ in self.objects_dir.rglob("*") if _.is_file())
+        
+        print(f"Created {pack_count} pack file(s)")
+        print(f"Remaining loose objects: {remaining_loose}")
+        print("Repository optimized!")
+        
+        return True
 
 def print_version():
     """Print FoxNest version information"""
-    print("🦊 FoxNest Version Control System")
+    print("FoxNest VCS")
     print("Version: 1.0.0")
-    print("A distributed version control system with simple commands")
     print("")
 
 def print_extended_help():
@@ -1017,9 +1374,11 @@ def print_extended_help():
     print("  commit -m <message>     Commit staged changes")
     print("  set origin <url>        Set remote repository URL")
     print("  push                    Push commits to server")
+    print("  push --archive          Push and archive repository")
     print("  pull                    Pull commits from server") 
     print("  status                  Show repository status")
     print("  log                     Show commit history")
+    print("  gc                      Optimize repository (garbage collection)")
     print("  help, --help, -h        Show this help message")
     print("  version, --version, -v  Show version information")
     print("")
@@ -1028,6 +1387,13 @@ def print_extended_help():
     print("  fox set origin 192.168.15.207:502")
     print("  fox add *.py README.md")
     print("  fox add --all")
+    print("  fox commit -m 'Initial commit'")
+    print("  fox push")
+    print("  fox push --archive")
+    print("  fox pull")
+    print("  fox status")
+    print("  fox log --oneline")
+    print("  fox gc                  # Optimize repository storage")
     print("  fox add .")
     print("  fox commit -m \"Initial commit\"")
     print("  fox push")
@@ -1057,7 +1423,7 @@ def main():
     
     parser = argparse.ArgumentParser(
         prog="fox",
-        description="🦊 FoxNest Version Control System - Simple, distributed version control",
+        description="🦊 FoxNest Version Control System",
         epilog="Use 'fox help' for detailed help with examples",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -1086,6 +1452,7 @@ def main():
     # Push command
     push_parser = subparsers.add_parser("push", help="Push commits to server")
     push_parser.add_argument("--force", action="store_true", help="Force push (use with caution)")
+    push_parser.add_argument("--archive", action="store_true", help="Archive repository after push")
     
     # Pull command
     pull_parser = subparsers.add_parser("pull", help="Pull commits from server")
@@ -1105,6 +1472,9 @@ def main():
     set_subparsers = set_parser.add_subparsers(dest="set_command", help="Set commands")
     origin_parser = set_subparsers.add_parser("origin", help="Set remote origin URL")
     origin_parser.add_argument("url", help="Remote origin URL (e.g., 192.168.15.207:502)")
+    
+    # Garbage collection command
+    gc_parser = subparsers.add_parser("gc", help="Optimize repository (garbage collection)")
     
     # Help command
     help_parser = subparsers.add_parser("help", help="Show help information")
@@ -1165,7 +1535,7 @@ def main():
             fox.commit(args.message)
             
     elif args.command == "push":
-        fox.push()
+        fox.push(archive=getattr(args, 'archive', False))
         
     elif args.command == "pull":
         fox.pull()
@@ -1188,6 +1558,9 @@ def main():
             fox.log_oneline(getattr(args, 'max_count', None))
         else:
             fox.log(getattr(args, 'max_count', None))
+    
+    elif args.command == "gc":
+        fox.gc()
 
 if __name__ == "__main__":
     main()
