@@ -1,7 +1,152 @@
 {
+  "package-lock.json": {
+    "hash": "0ed2a6ce1ae8f690",
+    "mtime": 1759206403.861983,
+    "size": 116198
+  },
+  "src/pages/Users.jsx": {
+    "hash": "331ddb2ca46e6f17",
+    "mtime": 1759206345.8451471,
+    "size": 9143
+  },
+  "index.html": {
+    "hash": "d8b7e92767200ae4",
+    "mtime": 1759206345.8444977,
+    "size": 356
+  },
+  "src/components/CodeEditor.jsx": {
+    "hash": "88c2f56ad6f002de",
+    "mtime": 1764568237.215849,
+    "size": 11392
+  },
+  "README.md": {
+    "hash": "dc576d2430d9d991",
+    "mtime": 1759206345.8444977,
+    "size": 856
+  },
+  "src/pages/PendingRepositories.jsx": {
+    "hash": "07dabd40d837de4d",
+    "mtime": 1764568323.9375868,
+    "size": 13475
+  },
+  "src/pages/UsersManagement.jsx": {
+    "hash": "47ed89f35a1f3d3c",
+    "mtime": 1764577536.278759,
+    "size": 26703
+  },
+  "src/index.css": {
+    "hash": "aa0229bf64892d20",
+    "mtime": 1759206345.8450377,
+    "size": 969
+  },
+  "package.json": {
+    "hash": "7460d53c30adf838",
+    "mtime": 1759206345.8444977,
+    "size": 707
+  },
+  "src/utils/helpers.js": {
+    "hash": "a76577c00617b249",
+    "mtime": 1759206345.8452919,
+    "size": 1523
+  },
+  "public/vite.svg": {
+    "hash": "4a748afd443918bb",
+    "mtime": 1759206345.8444977,
+    "size": 1497
+  },
+  "src/hooks/useCustomHooks.js": {
+    "hash": "c2603ed162dbe5e2",
+    "mtime": 1759206345.8450377,
+    "size": 1671
+  },
+  "src/pages/Repositories.jsx": {
+    "hash": "d2bbd8edab7df405",
+    "mtime": 1762499391.294432,
+    "size": 17541
+  },
+  "src/assets/react.svg": {
+    "hash": "35ef61ed53b323ae",
+    "mtime": 1759206345.8448467,
+    "size": 4126
+  },
+  "eslint.config.js": {
+    "hash": "38c6066c62e803f0",
+    "mtime": 1759206345.8444977,
+    "size": 763
+  },
+  "src/components/ui/Badge.jsx": {
+    "hash": "d8c6889b7d0c572f",
+    "mtime": 1759206345.844914,
+    "size": 690
+  },
+  "src/pages/Dashboard.jsx": {
+    "hash": "0afe7c13bf1b9ab1",
+    "mtime": 1759206345.8451471,
+    "size": 8221
+  },
+  "src/components/ui/GlassCard.jsx": {
+    "hash": "7dfee5e809ce48c2",
+    "mtime": 1759206345.84498,
+    "size": 423
+  },
+  "src/pages/Archive.jsx": {
+    "hash": "565268ff1e12d25a",
+    "mtime": 1764568294.7747276,
+    "size": 31834
+  },
+  "src/utils/api.js": {
+    "hash": "514c62c257da809e",
+    "mtime": 1764568401.2621105,
+    "size": 8124
+  },
+  "src/App.jsx": {
+    "hash": "212776d409c7266e",
+    "mtime": 1762498736.1716304,
+    "size": 1911
+  },
+  "src/components/layout/Header.jsx": {
+    "hash": "e0973df48f18cddf",
+    "mtime": 1759206345.8448908,
+    "size": 2755
+  },
+  "src/hooks/useApi.js": {
+    "hash": "aa5e987a1d5b455e",
+    "mtime": 1759206345.84498,
+    "size": 4193
+  },
   "src/main.jsx": {
     "hash": "a80e95307747ae44",
     "mtime": 1762499646.8900216,
     "size": 190
+  },
+  "vite.config.js": {
+    "hash": "9c872477d02e87bd",
+    "mtime": 1759206345.8452919,
+    "size": 150
+  },
+  "src/pages/PendingApprovals.jsx": {
+    "hash": "abdaa7f72ec75045",
+    "mtime": 1764568303.7404342,
+    "size": 12903
+  },
+  "src/components/ui/Button.jsx": {
+    "hash": "f48fcaa044407fbd",
+    "mtime": 1759206345.84498,
+    "size": 1450
+  },
+  "src/components/layout/Layout.jsx": {
+    "hash": "a09ca51245178877",
+    "mtime": 1759206345.844914,
+    "size": 1218
+  },
+  "src/components/layout/Sidebar.jsx": {
+    "hash": "59d30425e239cb43",
+    "mtime": 1762498753.5534208,
+    "size": 5918
+  },
+  "src/components/layout/Navigation.jsx": {
+    "hash": "a52c6417af6499ed",
+    "mtime": 1759206345.844914,
+    "size": 165
   }
 }

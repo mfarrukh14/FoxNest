@@ -561,14 +561,99 @@ async def get_commits(repo_id: str, full: bool = False, db: Session = Depends(ge
 
 @app.get("/api/repository/{repo_id}/files")
 async def get_repository_files(repo_id: str, db: Session = Depends(get_db)):
-    """Get all files in repository from latest commit"""
+    """Get all files in repository from latest commit or pending commit"""
     repository = RepositoryCRUD.get_repository(db, repo_id)
     if not repository:
         raise HTTPException(status_code=404, detail="Repository not found")
     
     try:
-        # Get the latest commit
-        if not repository.head_commit_id:
+        files_dict = {}
+        folders_set = set()
+        commit_id = None
+        commit_message = None
+        is_pending = False
+        
+        # First, try to get files from the latest approved commit
+        if repository.head_commit_id:
+            head_commit = db.query(Commit).filter(Commit.id == repository.head_commit_id).first()
+            if head_commit:
+                commit_id = head_commit.id
+                commit_message = head_commit.message
+                
+                for commit_file in head_commit.files:
+                    file_path = commit_file.file_path
+                    
+                    # Extract folder structure
+                    path_parts = file_path.split('/')
+                    for i in range(len(path_parts) - 1):
+                        folder_path = '/'.join(path_parts[:i+1])
+                        folders_set.add(folder_path)
+                    
+                    # Get file content
+                    if commit_file.file_object:
+                        try:
+                            content = commit_file.file_object.content.decode('utf-8')
+                            is_binary = False
+                        except UnicodeDecodeError:
+                            content = base64.b64encode(commit_file.file_object.content).decode('utf-8')
+                            is_binary = True
+                        
+                        files_dict[file_path] = {
+                            "content": content,
+                            "is_binary": is_binary,
+                            "size": commit_file.file_size,
+                            "hash": commit_file.file_hash,
+                            "mime_type": commit_file.file_object.mime_type
+                        }
+        
+        # If no approved commits, check for pending commits
+        if not files_dict:
+            from database.models import PendingCommit
+            pending_commits = db.query(PendingCommit).filter(
+                PendingCommit.repository_id == repo_id,
+                PendingCommit.status == 'pending'
+            ).order_by(PendingCommit.created_at.desc()).all()
+            
+            if pending_commits:
+                # Get files from the latest pending commit
+                latest_pending = pending_commits[0]
+                commit_id = latest_pending.id
+                commit_message = latest_pending.message
+                is_pending = True
+                
+                # Parse files_data JSON
+                import json
+                files_data = json.loads(latest_pending.files_data) if latest_pending.files_data else {}
+                
+                for file_path, file_content_b64 in files_data.items():
+                    # Extract folder structure
+                    path_parts = file_path.split('/')
+                    for i in range(len(path_parts) - 1):
+                        folder_path = '/'.join(path_parts[:i+1])
+                        folders_set.add(folder_path)
+                    
+                    try:
+                        # Decode base64 content
+                        content_bytes = base64.b64decode(file_content_b64.encode())
+                        try:
+                            content = content_bytes.decode('utf-8')
+                            is_binary = False
+                        except UnicodeDecodeError:
+                            content = file_content_b64
+                            is_binary = True
+                        
+                        files_dict[file_path] = {
+                            "content": content,
+                            "is_binary": is_binary,
+                            "size": len(content_bytes),
+                            "hash": None,
+                            "mime_type": None
+                        }
+                    except Exception as e:
+                        print(f"Error processing file {file_path}: {e}")
+                        continue
+        
+        if not files_dict:
             return {
                 "success": True,
                 "files": {},
@@ -576,56 +661,19 @@ async def get_repository_files(repo_id: str, db: Session = Depends(get_db)):
                 "message": "Repository is empty"
             }
         
-        head_commit = db.query(Commit).filter(Commit.id == repository.head_commit_id).first()
-        if not head_commit:
-            return {
-                "success": True,
-                "files": {},
-                "folders": [],
-                "message": "No commits found"
-            }
-        
-        # Get all files from the head commit
-        files_dict = {}
-        folders_set = set()
-        
-        for commit_file in head_commit.files:
-            file_path = commit_file.file_path
-            
-            # Extract folder structure
-            path_parts = file_path.split('/')
-            for i in range(len(path_parts) - 1):
-                folder_path = '/'.join(path_parts[:i+1])
-                folders_set.add(folder_path)
-            
-            # Get file content
-            if commit_file.file_object:
-                try:
-                    # Try to decode as text
-                    content = commit_file.file_object.content.decode('utf-8')
-                    is_binary = False
-                except UnicodeDecodeError:
-                    # Binary file, encode to base64
-                    content = base64.b64encode(commit_file.file_object.content).decode('utf-8')
-                    is_binary = True
-                
-                files_dict[file_path] = {
-                    "content": content,
-                    "is_binary": is_binary,
-                    "size": commit_file.file_size,
-                    "hash": commit_file.file_hash,
-                    "mime_type": commit_file.file_object.mime_type
-                }
-        
         return {
             "success": True,
             "files": files_dict,
             "folders": sorted(list(folders_set)),
-            "commit_id": head_commit.id,
-            "commit_message": head_commit.message
+            "commit_id": commit_id,
+            "commit_message": commit_message,
+            "is_pending": is_pending
         }
     
     except Exception as e:
+        import traceback
+        print(f"Error in get_repository_files: {str(e)}")
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/api/admin/create-sample-data")

@@ -994,13 +994,17 @@ class FoxClient:
                 commit_data = commit.copy()
                 
                 # Convert file format for server
+                # Server expects {file_path: content} format
                 server_files = {}
                 for file_hash, file_info in commit["files"].items():
                     # Handle both old format (dict with path and content) and new format (content string)
                     if isinstance(file_info, dict):
-                        server_files[file_hash] = file_info["content"]
+                        # Use the actual file path as key, not the hash
+                        file_path = file_info.get("path", file_hash)
+                        server_files[file_path] = file_info["content"]
                     else:
                         # If file_info is just a string, it's already the content
+                        # In this case, we don't have the path, so use hash (legacy fallback)
                         server_files[file_hash] = file_info
                 
                 commit_data["files"] = server_files
