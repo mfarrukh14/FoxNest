@@ -9,8 +9,10 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
-    email = Column(String(100), unique=True, index=True)
+    email = Column(String(100), index=True)  # Removed unique=True to allow multiple NULL emails
     full_name = Column(String(100))
+    role = Column(String(20), default='developer')  # 'developer' or 'team_lead'
+    team_lead_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # For developers, reference to their team lead
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     is_active = Column(Boolean, default=True)
@@ -18,6 +20,7 @@ class User(Base):
     # Relationships
     repositories = relationship("Repository", back_populates="owner")
     commits = relationship("Commit", back_populates="author")
+    team_lead = relationship("User", remote_side=[id], foreign_keys=[team_lead_id])  # Self-referential relationship
 
 class Repository(Base):
     __tablename__ = "repositories"
@@ -133,3 +136,64 @@ class Activity(Base):
     # Relationships
     user = relationship("User")
     repository = relationship("Repository")
+
+class PendingCommit(Base):
+    __tablename__ = "pending_commits"
+    
+    id = Column(String(40), primary_key=True, index=True)  # SHA-1 hash
+    repository_id = Column(String(16), ForeignKey("repositories.id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    parent_commit_id = Column(String(40))
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+    
+    # Approval status
+    status = Column(String(20), default='pending')  # pending, approved, rejected
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"))
+    reviewed_at = Column(DateTime)
+    review_comment = Column(Text)
+    
+    # Commit metadata
+    tree_hash = Column(String(40))
+    files_data = Column(Text)  # JSON string containing file data
+    
+    # Relationships
+    repository = relationship("Repository")
+    author = relationship("User", foreign_keys=[author_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by_id])
+
+class PendingRepository(Base):
+    __tablename__ = "pending_repositories"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    repo_name = Column(String(100), nullable=False)
+    description = Column(Text)
+    requested_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # Team lead who will own it
+    created_at = Column(DateTime, server_default=func.now())
+    
+    # Approval status
+    status = Column(String(20), default='pending')  # pending, approved, rejected
+    reviewed_by_id = Column(Integer, ForeignKey("users.id"))
+    reviewed_at = Column(DateTime)
+    review_comment = Column(Text)
+    
+    # Relationships
+    requested_by = relationship("User", foreign_keys=[requested_by_id])
+    owner = relationship("User", foreign_keys=[owner_id])
+    reviewer = relationship("User", foreign_keys=[reviewed_by_id])
+
+class UserPermission(Base):
+    __tablename__ = "user_permissions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    repository_id = Column(String(16), ForeignKey("repositories.id"), nullable=False)
+    permission_level = Column(String(20), nullable=False)  # read, write, admin, team_lead
+    granted_by_id = Column(Integer, ForeignKey("users.id"))
+    granted_at = Column(DateTime, server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    repository = relationship("Repository")
+    granted_by = relationship("User", foreign_keys=[granted_by_id])

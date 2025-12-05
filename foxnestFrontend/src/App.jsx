@@ -1,9 +1,11 @@
 import React,{ useState } from 'react'
 import Layout from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
-import Users from './pages/Users'
+import UsersManagement from './pages/UsersManagement'
 import Repositories from './pages/Repositories'
 import Archive from './pages/Archive'
+import PendingApprovals from './pages/PendingApprovals'
+import PendingRepositories from './pages/PendingRepositories'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -12,10 +14,14 @@ function App() {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard />
-      case 'users':
-        return <Users />
+      case 'users-management':
+        return <UsersManagement />
       case 'repositories':
         return <Repositories />
+      case 'pending-approvals':
+        return <PendingApprovals />
+      case 'pending-repositories':
+        return <PendingRepositories />
       case 'archive':
         return <Archive />
       default:

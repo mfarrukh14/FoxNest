@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.15.237:5000/api'
+const API_BASE_URL = 'http://192.168.0.11:5000/api'
 
 class FoxNestAPI {
   constructor() {
@@ -74,6 +74,12 @@ class FoxNestAPI {
     return this.request(`/repository/${repoId}/pull${params}`)
   }
 
+  async deleteRepository(repoId) {
+    return this.request(`/repository/${repoId}`, {
+      method: 'DELETE',
+    })
+  }
+
   // Health check
   async healthCheck() {
     return this.request('/', { method: 'GET' })
@@ -97,6 +103,7 @@ class FoxNestAPI {
       status: repo.is_archived ? 'archived' : 'active',
       visibility: 'public', // Default for now
       tags: [],
+      files: [], // Empty array to prevent undefined error
       owner: repo.owner,
       createdAt: repo.created_at,
       head: repo.head,

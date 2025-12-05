@@ -28,7 +28,7 @@ fox init --username alice --repo-name demo
 echo "Hello" > hello.txt
 fox add hello.txt
 fox commit -m "Initial commit"
-fox set origin 192.168.15.237:5000
+fox set origin 192.168.0.11:5000
 fox push
 
 # Optimize storage

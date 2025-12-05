@@ -1,0 +1,30 @@
+{
+  "server.py": {
+    "current_hash": "ad9995b944ca9c93",
+    "base_hash": null
+  },
+  "test_delete.py": {
+    "current_hash": "9cc7d8237bcad3f1",
+    "base_hash": null
+  },
+  "foxnest.db": {
+    "current_hash": "bcf6b8e70e8aa89b",
+    "base_hash": "bb9c82bca25b64f1"
+  },
+  "init_database.py": {
+    "current_hash": "5221e963b778ed4c",
+    "base_hash": null
+  },
+  "database/database.py": {
+    "current_hash": "f254e6aecf58e7e9",
+    "base_hash": null
+  },
+  "database/crud.py": {
+    "current_hash": "f0e4586de6eae726",
+    "base_hash": null
+  },
+  "database/models.py": {
+    "current_hash": "47eeef4cb5c1002f",
+    "base_hash": null
+  }
+}

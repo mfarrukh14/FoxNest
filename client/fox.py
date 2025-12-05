@@ -29,18 +29,57 @@ class FoxClient:
         self.index_file = self.fox_dir / "index.json"  # Git-like index for fast tracking
         self.delta_cache_file = self.fox_dir / "delta_cache.json"  # Cache for delta relationships
         
+        # Global credentials file (in user's home directory)
+        self.global_config_dir = Path.home() / ".foxnest"
+        self.global_config_file = self.global_config_dir / "credentials.json"
+        
         # Compression settings
         self.compression_level = 6  # zlib compression level (1-9)
         self.pack_threshold = 20  # Number of objects before creating pack
         
         # Default server configuration
-        self.server_url = "http://192.168.15.237:5000"
+        self.server_url = "http://192.168.0.11:5000"
         
         # Load server URL from config if available
         if self.is_initialized():
             config = self.load_config()
             if config and 'server_url' in config:
                 self.server_url = config['server_url']
+    
+    def load_global_config(self):
+        """Load global FoxNest credentials"""
+        if not self.global_config_file.exists():
+            return {}
+        
+        try:
+            with open(self.global_config_file, "r") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not load global config: {e}")
+            return {}
+    
+    def save_global_config(self, config):
+        """Save global FoxNest credentials"""
+        self.global_config_dir.mkdir(exist_ok=True)
+        
+        try:
+            with open(self.global_config_file, "w") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Error: Could not save global config: {e}")
+            return False
+    
+    def set_global_username(self, username):
+        """Set global username for all Fox repositories"""
+        config = self.load_global_config()
+        config["username"] = username
+        
+        if self.save_global_config(config):
+            print(f"Global username set to: {username}")
+            print(f"Config saved to: {self.global_config_file}")
+            return True
+        return False
     
     def check_repository(self, command_name="command"):
         """Check if current directory is a Fox repository"""
@@ -51,17 +90,19 @@ class FoxClient:
         return True
     
     def get_origin_url(self):
-        """Get the origin URL from config"""
-        config = self.load_config()
-        if not config:
-            return None
-        return config.get("origin_url")
-    
-    def set_origin(self, origin_url):
-        """Set the origin URL for the repository"""
-        if not self.check_repository("set origin"):
-            return False
+        """Get the origin URL from config (local or global)"""
+        # First try local config
+        if self.is_initialized():
+            config = self.load_config()
+            if config and config.get("origin_url"):
+                return config["origin_url"]
         
+        # Fall back to global config
+        global_config = self.load_global_config()
+        return global_config.get("origin_url")
+    
+    def set_origin(self, origin_url, is_global=False):
+        """Set the origin URL for the repository"""
         # Validate URL format
         if not origin_url.startswith(('http://', 'https://')):
             # Assume it's an IP:port and add http://
@@ -70,12 +111,30 @@ class FoxClient:
             else:
                 origin_url = f"http://{origin_url}:5000"
         
-        config = self.load_config()
-        config["origin_url"] = origin_url
-        self.save_config(config)
-        
-        print(f"Origin set to: {origin_url}")
-        return True
+        if is_global:
+            # Set global origin
+            config = self.load_global_config()
+            config["origin_url"] = origin_url
+            if self.save_global_config(config):
+                print(f"Global origin set to: {origin_url}")
+                print(f"Config saved to: {self.global_config_file}")
+                return True
+            return False
+        else:
+            # Set local origin
+            if not self.check_repository("set origin"):
+                return False
+            
+            config = self.load_config()
+            config["origin_url"] = origin_url
+            self.save_config(config)
+            
+            print(f"Origin set to: {origin_url}")
+            return True
+    
+    def set_global_origin(self, origin_url):
+        """Set global origin URL for all Fox repositories"""
+        return self.set_origin(origin_url, is_global=True)
     
     def init(self, username=None, repo_name=None):
         """Initialize a new Fox repository"""
@@ -83,8 +142,21 @@ class FoxClient:
             print("Repository already initialized!")
             return False
         
+        # Try to get username from global config if not provided
         if not username:
-            username = input("Enter username: ")
+            global_config = self.load_global_config()
+            username = global_config.get("username")
+            
+            if username:
+                print(f"Using global username: {username}")
+            else:
+                username = input("Enter username: ")
+                
+                # Offer to save username globally
+                save_global = input("Save username globally for future repositories? (y/n): ").lower()
+                if save_global == 'y':
+                    self.set_global_username(username)
+        
         if not repo_name:
             repo_name = input("Enter repository name: ")
         
@@ -779,7 +851,31 @@ class FoxClient:
             if response.status_code == 200:
                 data = response.json()
                 if data["success"]:
-                    return data["repo_id"]
+                    # Check if repository creation is pending approval
+                    if data.get("status") == "pending_approval":
+                        team_lead = data.get("team_lead", "team lead")
+                        print(f"📝 Repository creation - Pending approval from {team_lead}")
+                        if data.get("message"):
+                            print(f"   {data['message']}")
+                        # Store team_lead for future checks
+                        return {"status": "pending", "team_lead": team_lead}
+                    
+                    # Repository created or already exists
+                    repo_id = data.get("repo_id") or data.get("id")
+                    if not repo_id:
+                        print("Error: Server did not return repository ID")
+                        return None
+                    
+                    # Show message if repository already existed or was just created
+                    message = data.get("message")
+                    if message and "already exists" in message.lower():
+                        print(f"✓ Repository found: {repo_id}")
+                    elif message and "approved" in message.lower():
+                        print(f"✓ Repository approved and created: {repo_id}")
+                    elif message:
+                        print(f"ℹ️  {message}")
+                    
+                    return repo_id
                 else:
                     error_msg = data.get('error', '')
                     if "already exists" in error_msg.lower():
@@ -815,6 +911,19 @@ class FoxClient:
                         print(f"Server error: {error_msg}")
                 except:
                     print(f"HTTP error: {response.status_code}")
+            elif response.status_code == 403:
+                # Handle permission denied
+                try:
+                    data = response.json()
+                    error_msg = data.get('detail', 'Permission denied')
+                    print(f"\n❌ Access Denied: {error_msg}")
+                    print(f"\n💡 Your username '{config['username']}' is not registered in the system.")
+                    print(f"   Please contact an administrator to create your account.")
+                    print(f"\n   To change your username, run: fox --update username")
+                except:
+                    print(f"\n❌ Access Denied (HTTP 403)")
+                    print(f"   Your account may not exist or you don't have permission.")
+                    print(f"   To change your username, run: fox --update username")
             else:
                 print(f"HTTP error: {response.status_code}")
         
@@ -942,7 +1051,8 @@ class FoxClient:
         origin_url = self.get_origin_url()
         if not origin_url:
             print("Fatal: No origin set. Use 'fox set origin <ip:port>' to set the remote repository URL")
-            print("Example: fox set origin 192.168.15.207:502")
+            print("  You can also set it globally: fox set origin <ip:port> --global")
+            print("Example: fox set origin 192.168.15.207:502 --global")
             return False
         
         # Update server_url to use origin
@@ -952,14 +1062,47 @@ class FoxClient:
         # Create remote repository if needed
         if not config.get("repo_id"):
             print("Creating remote repository...")
-            repo_id = self.create_remote_repository(config)
-            if not repo_id:
+            result = self.create_remote_repository(config)
+            
+            # Handle different return types
+            if isinstance(result, dict) and result.get("status") == "pending":
+                # Repository creation is pending approval
+                team_lead = result.get("team_lead", "team lead")
+                
+                # Try to check if it was already approved by checking with team lead's username
+                import hashlib
+                expected_repo_id = hashlib.md5(f"{team_lead}_{config['repo_name']}".encode()).hexdigest()[:16]
+                
+                try:
+                    verify_response = requests.get(
+                        f"{config['server_url']}/api/repository/{expected_repo_id}",
+                        timeout=10
+                    )
+                    if verify_response.status_code == 200:
+                        data = verify_response.json()
+                        if data.get("success"):
+                            # Repository exists! It was approved
+                            print("\n✓ Repository has been approved!")
+                            config["repo_id"] = expected_repo_id
+                            self.save_config(config)
+                            print(f"Configured remote repository: {expected_repo_id}")
+                        else:
+                            print("\n⏳ Cannot push until repository is approved by team lead.")
+                            return False
+                    else:
+                        print("\n⏳ Cannot push until repository is approved by team lead.")
+                        return False
+                except Exception as e:
+                    print(f"\n⏳ Cannot push until repository is approved by team lead.")
+                    return False
+            elif not result:
                 print("Failed to create remote repository")
                 return False
-            
-            config["repo_id"] = repo_id
-            self.save_config(config)
-            print(f"Created remote repository: {repo_id}")
+            else:
+                # Got repo_id directly
+                config["repo_id"] = result
+                self.save_config(config)
+                print(f"Created remote repository: {result}")
         
         # Load local commits
         if not self.commits_file.exists():
@@ -1001,6 +1144,24 @@ class FoxClient:
             print(f"Warning: Could not check remote commits: {e}")
             pass
         
+        # Verify commit authors match current username (from global config)
+        global_config = self.load_global_config()
+        current_username = global_config.get('username') or config.get('username')
+        
+        if current_username:
+            for commit in commits_to_push:
+                commit_author = commit.get('author')
+                if commit_author != current_username:
+                    print(f"\n❌ Error: Commit author mismatch detected!")
+                    print(f"   Commit {commit['id'][:12]} was created by: {commit_author}")
+                    print(f"   Your current username is: {current_username}")
+                    print(f"\n💡 This commit was created with a different username.")
+                    print(f"   You cannot push commits created by another user.")
+                    print(f"\n   Options:")
+                    print(f"   1. Switch back to '{commit_author}': fox --update username")
+                    print(f"   2. Create a new commit with your current username")
+                    return False
+        
         # Push each new commit
         pushed_count = 0
         for commit in commits_to_push:
@@ -1029,7 +1190,14 @@ class FoxClient:
                 if response.status_code == 200:
                     data = response.json()
                     if data["success"]:
-                        print(f"Pushed commit: {commit['id']}")
+                        # Check if commit is pending approval
+                        if data.get("status") == "pending_approval":
+                            team_lead = data.get("team_lead", "team lead")
+                            print(f"📝 Commit {commit['id'][:12]} - Pending approval by {team_lead}")
+                            if data.get("message"):
+                                print(f"   {data['message']}")
+                        else:
+                            print(f"✓ Pushed commit: {commit['id'][:12]}")
                         pushed_count += 1
                     else:
                         print(f"Failed to push commit {commit['id']}: {data.get('error')}")
@@ -1373,40 +1541,47 @@ def print_extended_help():
     print("  add .                   Add all files in working directory")
     print("  commit -m <message>     Commit staged changes")
     print("  set origin <url>        Set remote repository URL")
+    print("  set username <name>     Set global username")
+    print("  --update username       Update username interactively")
     print("  push                    Push commits to server")
     print("  push --archive          Push and archive repository")
     print("  pull                    Pull commits from server") 
     print("  status                  Show repository status")
     print("  log                     Show commit history")
+    print("  config                  Show configuration")
     print("  gc                      Optimize repository (garbage collection)")
     print("  help, --help, -h        Show this help message")
     print("  version, --version, -v  Show version information")
     print("")
     print("EXAMPLES:")
+    print("  fox set username alice")
     print("  fox init --username alice --repo-name myproject")
     print("  fox set origin 192.168.15.207:502")
     print("  fox add *.py README.md")
     print("  fox add --all")
     print("  fox commit -m 'Initial commit'")
     print("  fox push")
+    print("  fox --update username    # Change your username")
+    print("  fox config               # View current settings")
     print("  fox push --archive")
     print("  fox pull")
     print("  fox status")
     print("  fox log --oneline")
     print("  fox gc                  # Optimize repository storage")
-    print("  fox add .")
-    print("  fox commit -m \"Initial commit\"")
-    print("  fox push")
-    print("  fox status")
-    print("  fox log")
     print("")
     print("GETTING STARTED:")
-    print("  1. Start server: fox-server")
+    print("  1. Set username: fox set username <your_name>")
     print("  2. Initialize repo: fox init")
     print("  3. Set origin: fox set origin <ip:port>")
     print("  4. Add files: fox add <files>")
     print("  5. Commit: fox commit -m \"message\"")
     print("  6. Push: fox push")
+    print("")
+    print("TROUBLESHOOTING:")
+    print("  If you see 'Access Denied' when pushing:")
+    print("  - Your username must be registered by an administrator")
+    print("  - Update your username: fox --update username")
+    print("  - Contact your system administrator to create your account")
     print("")
     print("For more information, visit the documentation or run 'fox <command> --help'")
 
@@ -1430,6 +1605,7 @@ def main():
     
     # Add global options
     parser.add_argument("--version", "-v", action="store_true", help="Show version information")
+    parser.add_argument("--update", choices=["username"], help="Update configuration (e.g., --update username)")
     
     subparsers = parser.add_subparsers(dest="command", help="Available commands", metavar="<command>")
     
@@ -1467,11 +1643,17 @@ def main():
     log_parser.add_argument("--oneline", action="store_true", help="Show one line per commit")
     log_parser.add_argument("-n", "--max-count", type=int, help="Limit number of commits shown")
     
-    # Set command (for setting origin)
+    # Set command (for setting origin and username)
     set_parser = subparsers.add_parser("set", help="Set repository configuration")
     set_subparsers = set_parser.add_subparsers(dest="set_command", help="Set commands")
     origin_parser = set_subparsers.add_parser("origin", help="Set remote origin URL")
     origin_parser.add_argument("url", help="Remote origin URL (e.g., 192.168.15.207:502)")
+    origin_parser.add_argument("--global", dest="global_origin", action="store_true", help="Set origin globally for all repositories")
+    username_parser = set_subparsers.add_parser("username", help="Set global username")
+    username_parser.add_argument("username", help="Your username for commits")
+    
+    # Config command (show configuration)
+    config_parser = subparsers.add_parser("config", help="Show FoxNest configuration")
     
     # Garbage collection command
     gc_parser = subparsers.add_parser("gc", help="Optimize repository (garbage collection)")
@@ -1484,6 +1666,17 @@ def main():
     # Handle global version flag
     if args.version:
         print_version()
+        return
+    
+    # Handle global update flag
+    if args.update:
+        fox = FoxClient()
+        if args.update == "username":
+            new_username = input("Enter new username: ").strip()
+            if new_username:
+                fox.set_global_username(new_username)
+            else:
+                print("❌ Username cannot be empty")
         return
     
     if not args.command:
@@ -1548,10 +1741,35 @@ def main():
             
     elif args.command == "set":
         if getattr(args, 'set_command', None) == "origin":
-            fox.set_origin(args.url)
+            # Check if --global flag is set
+            is_global = getattr(args, 'global_origin', False)
+            fox.set_origin(args.url, is_global=is_global)
+        elif getattr(args, 'set_command', None) == "username":
+            fox.set_global_username(args.username)
         else:
-            print("Usage: fox set origin <url>")
-            print("Example: fox set origin 192.168.15.207:502")
+            print("Usage:")
+            print("  fox set origin <url> [--global]  - Set remote origin URL")
+            print("  fox set username <name>          - Set global username")
+            print("\nExamples:")
+            print("  fox set origin 192.168.15.207:502")
+            print("  fox set origin 192.168.15.207:502 --global  # Set for all repos")
+            print("  fox set username john_doe")
+            
+    elif args.command == "config":
+        # Show current config
+        global_config = fox.load_global_config()
+        print("\nGlobal Configuration:")
+        print(f"  Username: {global_config.get('username', 'Not set')}")
+        print(f"  Origin URL: {global_config.get('origin_url', 'Not set')}")
+        print(f"  Config file: {fox.global_config_file}")
+        
+        if fox.is_initialized():
+            local_config = fox.load_config()
+            print("\nLocal Repository Configuration:")
+            print(f"  Username: {local_config.get('username')}")
+            print(f"  Repository: {local_config.get('repo_name')}")
+            print(f"  Server URL: {local_config.get('server_url')}")
+            print(f"  Origin URL: {local_config.get('origin_url', 'Not set (using global)')}")
             
     elif args.command == "log":
         if getattr(args, 'oneline', False):

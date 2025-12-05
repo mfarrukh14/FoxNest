@@ -1,0 +1,122 @@
+{
+  "package-lock.json": {
+    "current_hash": "0ed2a6ce1ae8f690",
+    "base_hash": null
+  },
+  "index.html": {
+    "current_hash": "d8b7e92767200ae4",
+    "base_hash": null
+  },
+  "README.md": {
+    "current_hash": "dc576d2430d9d991",
+    "base_hash": null
+  },
+  "package.json": {
+    "current_hash": "7460d53c30adf838",
+    "base_hash": null
+  },
+  "eslint.config.js": {
+    "current_hash": "38c6066c62e803f0",
+    "base_hash": null
+  },
+  "vite.config.js": {
+    "current_hash": "9c872477d02e87bd",
+    "base_hash": null
+  },
+  "src/index.css": {
+    "current_hash": "aa0229bf64892d20",
+    "base_hash": null
+  },
+  "src/App.jsx": {
+    "current_hash": "212776d409c7266e",
+    "base_hash": null
+  },
+  "src/main.jsx": {
+    "current_hash": "a80e95307747ae44",
+    "base_hash": "9fe328972ae628b2"
+  },
+  "public/vite.svg": {
+    "current_hash": "4a748afd443918bb",
+    "base_hash": null
+  },
+  "src/hooks/useCustomHooks.js": {
+    "current_hash": "c2603ed162dbe5e2",
+    "base_hash": null
+  },
+  "src/hooks/useApi.js": {
+    "current_hash": "aa5e987a1d5b455e",
+    "base_hash": null
+  },
+  "src/components/CodeEditor.jsx": {
+    "current_hash": "b57d914406464d97",
+    "base_hash": null
+  },
+  "src/assets/react.svg": {
+    "current_hash": "35ef61ed53b323ae",
+    "base_hash": null
+  },
+  "src/pages/Users.jsx": {
+    "current_hash": "331ddb2ca46e6f17",
+    "base_hash": null
+  },
+  "src/pages/PendingRepositories.jsx": {
+    "current_hash": "36628e67e5c84bb0",
+    "base_hash": null
+  },
+  "src/pages/UsersManagement.jsx": {
+    "current_hash": "2c463a4d3c4af459",
+    "base_hash": null
+  },
+  "src/pages/Repositories.jsx": {
+    "current_hash": "d2bbd8edab7df405",
+    "base_hash": null
+  },
+  "src/pages/Dashboard.jsx": {
+    "current_hash": "0afe7c13bf1b9ab1",
+    "base_hash": null
+  },
+  "src/pages/Archive.jsx": {
+    "current_hash": "a05bee91a44362ae",
+    "base_hash": null
+  },
+  "src/pages/PendingApprovals.jsx": {
+    "current_hash": "430508ca9f8e508c",
+    "base_hash": null
+  },
+  "src/utils/helpers.js": {
+    "current_hash": "a76577c00617b249",
+    "base_hash": null
+  },
+  "src/utils/api.js": {
+    "current_hash": "a0e1e9773caf0e41",
+    "base_hash": null
+  },
+  "src/components/layout/Header.jsx": {
+    "current_hash": "e0973df48f18cddf",
+    "base_hash": null
+  },
+  "src/components/layout/Layout.jsx": {
+    "current_hash": "a09ca51245178877",
+    "base_hash": null
+  },
+  "src/components/layout/Sidebar.jsx": {
+    "current_hash": "59d30425e239cb43",
+    "base_hash": null
+  },
+  "src/components/layout/Navigation.jsx": {
+    "current_hash": "a52c6417af6499ed",
+    "base_hash": null
+  },
+  "src/components/ui/Badge.jsx": {
+    "current_hash": "d8c6889b7d0c572f",
+    "base_hash": null
+  },
+  "src/components/ui/GlassCard.jsx": {
+    "current_hash": "7dfee5e809ce48c2",
+    "base_hash": null
+  },
+  "src/components/ui/Button.jsx": {
+    "current_hash": "f48fcaa044407fbd",
+    "base_hash": null
+  }
+}

@@ -134,7 +134,7 @@ fox init --username test --repo-name testrepo
 echo "content" > file.txt
 fox add file.txt
 fox commit -m "test"
-fox set origin 192.168.15.237:5000
+fox set origin 192.168.0.11:5000
 fox push
 # ✅ Should show in Repositories tab
 

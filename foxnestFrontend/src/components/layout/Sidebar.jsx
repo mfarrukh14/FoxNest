@@ -1,4 +1,4 @@
-import { FiUser, FiFolder, FiArchive, FiHome, FiMenu, FiX } from 'react-icons/fi'
+import { FiUser, FiFolder, FiArchive, FiHome, FiMenu, FiX, FiShield, FiClock } from 'react-icons/fi'
 import React from 'react'
 
 const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab }) => {
@@ -10,16 +10,28 @@ const Sidebar = ({ isOpen, setIsOpen, activeTab, setActiveTab }) => {
       description: 'Overview of all activities'
     },
     {
-      name: 'Users',
-      id: 'users',
-      icon: FiUser,
-      description: 'View all users and their commits'
+      name: 'Users & Permissions',
+      id: 'users-management',
+      icon: FiShield,
+      description: 'Manage users and permissions'
     },
     {
       name: 'Repositories',
       id: 'repositories',
       icon: FiFolder,
       description: 'Browse all repositories'
+    },
+    {
+      name: 'Pending Approvals',
+      id: 'pending-approvals',
+      icon: FiClock,
+      description: 'Review pending commits'
+    },
+    {
+      name: 'Pending Repositories',
+      id: 'pending-repositories',
+      icon: FiFolder,
+      description: 'Review pending repository requests'
     },
     {
       name: 'Archive',

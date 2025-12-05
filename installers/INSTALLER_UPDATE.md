@@ -144,7 +144,7 @@ fox commit -m "test"
 fox gc  # Should show garbage collection
 
 # 3. Test archive feature
-fox set origin 192.168.15.237:5000
+fox set origin 192.168.0.11:5000
 fox push --archive  # Should archive
 fox push            # Should show error about archived repo
 

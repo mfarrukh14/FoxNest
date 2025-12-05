@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { FiFolder, FiGitCommit, FiUsers, FiStar, FiEye, FiGitBranch, FiClock, FiArchive, FiEdit3, FiTrash2, FiWifi, FiWifiOff, FiLoader } from 'react-icons/fi'
+import { FiFolder, FiGitCommit, FiUsers, FiStar, FiEye, FiGitBranch, FiClock, FiArchive, FiEdit3, FiTrash2, FiWifi, FiWifiOff, FiLoader, FiCode } from 'react-icons/fi'
 import GlassCard from '../components/ui/GlassCard'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import CodeEditor from '../components/CodeEditor'
 import { useRepositories, useServerHealth } from '../hooks/useApi'
 import api from '../utils/api'
 
@@ -12,6 +13,10 @@ const Repositories = () => {
   const [repositories, setRepositories] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, repo: null })
+  const [deleting, setDeleting] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorRepo, setEditorRepo] = useState(null)
 
   useEffect(() => {
     fetchRepositories()
@@ -47,6 +52,48 @@ const Repositories = () => {
   const handleArchive = (repoId) => {
     // Handle archiving logic here
     console.log('Archiving repository:', repoId)
+  }
+
+  const handleOpenEditor = (e, repo) => {
+    e.stopPropagation()
+    setEditorRepo(repo)
+    setEditorOpen(true)
+  }
+
+  const handleDeleteClick = (e, repo) => {
+    e.stopPropagation()
+    setDeleteModal({ isOpen: true, repo })
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.repo) return
+    
+    try {
+      setDeleting(true)
+      const response = await api.deleteRepository(deleteModal.repo.id)
+      
+      if (response.success) {
+        // Remove from local state
+        setRepositories(repositories.filter(r => r.id !== deleteModal.repo.id))
+        
+        // Close selected repo if it was the deleted one
+        if (selectedRepo?.id === deleteModal.repo.id) {
+          setSelectedRepo(null)
+        }
+        
+        // Close modal
+        setDeleteModal({ isOpen: false, repo: null })
+      }
+    } catch (err) {
+      console.error('Error deleting repository:', err)
+      alert(`Failed to delete repository: ${err.message}`)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteModal({ isOpen: false, repo: null })
   }
 
   const handleRepoClick = (repo) => {
@@ -174,6 +221,9 @@ const Repositories = () => {
                 <p className="text-sm text-white/70 line-clamp-2">{repo.description}</p>
               </div>
               <div className="flex items-center space-x-1 ml-4">
+                <Button variant="ghost" size="sm" onClick={(e) => handleOpenEditor(e, repo)} title="Open in Editor">
+                  <FiCode className="w-4 h-4 text-blue-400" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={(e) => {
                   e.stopPropagation()
                   // Handle edit
@@ -185,6 +235,9 @@ const Repositories = () => {
                   handleArchive(repo.id)
                 }}>
                   <FiArchive className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={(e) => handleDeleteClick(e, repo)}>
+                  <FiTrash2 className="w-4 h-4 text-red-400" />
                 </Button>
               </div>
             </div>
@@ -292,25 +345,111 @@ const Repositories = () => {
             <div>
               <h3 className="text-lg font-medium text-white mb-4">Files & Folders</h3>
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {selectedRepo.files.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors">
-                    <div className="flex items-center space-x-2">
-                      {file.type === 'folder' ? (
-                        <FiFolder className="w-4 h-4 text-blue-400" />
-                      ) : (
-                        <div className="w-4 h-4 bg-white/30 rounded"></div>
-                      )}
-                      <span className="text-white text-sm">{file.name}</span>
+                {selectedRepo.files && selectedRepo.files.length > 0 ? (
+                  selectedRepo.files.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 rounded-lg bg-white/10 hover:bg-white/15 transition-colors">
+                      <div className="flex items-center space-x-2">
+                        {file.type === 'folder' ? (
+                          <FiFolder className="w-4 h-4 text-blue-400" />
+                        ) : (
+                          <div className="w-4 h-4 bg-white/30 rounded"></div>
+                        )}
+                        <span className="text-white text-sm">{file.name}</span>
+                      </div>
+                      <span className="text-white/50 text-xs">
+                        {file.type === 'folder' ? `${file.files} files` : file.size}
+                      </span>
                     </div>
-                    <span className="text-white/50 text-xs">
-                      {file.type === 'folder' ? `${file.files} files` : file.size}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                ) : (
+                  <p className="text-white/50 text-sm">No files available</p>
+                )}
               </div>
             </div>
           </div>
         </GlassCard>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <GlassCard className="p-6 max-w-md w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center">
+                <FiTrash2 className="w-6 h-6 text-red-400 mr-2" />
+                Delete Repository
+              </h3>
+              <p className="text-white/70">
+                Are you sure you want to permanently delete this repository?
+              </p>
+            </div>
+
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+              <p className="text-white font-semibold mb-1">{deleteModal.repo?.name}</p>
+              <p className="text-white/70 text-sm mb-3">{deleteModal.repo?.description}</p>
+              <div className="flex items-center space-x-4 text-xs text-white/60">
+                <span className="flex items-center">
+                  <FiGitCommit className="w-3 h-3 mr-1" />
+                  {deleteModal.repo?.commits} commits
+                </span>
+                <span className="flex items-center">
+                  <FiUsers className="w-3 h-3 mr-1" />
+                  Owner: {deleteModal.repo?.owner}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-6">
+              <p className="text-yellow-200 text-sm font-medium flex items-start">
+                <span className="mr-2">⚠️</span>
+                <span>
+                  This action cannot be undone. All commits, files, and related data will be permanently deleted.
+                </span>
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={handleDeleteCancel}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="flex-1 bg-red-500 hover:bg-red-600"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <FiLoader className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <FiTrash2 className="w-4 h-4 mr-2" />
+                    Delete Permanently
+                  </>
+                )}
+              </Button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Code Editor Modal */}
+      {editorOpen && editorRepo && (
+        <CodeEditor
+          repoId={editorRepo.id}
+          repoName={editorRepo.name}
+          onClose={() => {
+            setEditorOpen(false)
+            setEditorRepo(null)
+          }}
+        />
       )}
     </div>
   )

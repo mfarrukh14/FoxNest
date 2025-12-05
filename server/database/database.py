@@ -35,5 +35,11 @@ def get_db():
         db.close()
 
 def create_tables():
-    """Create all tables"""
+    """Create all tables if they don't exist"""
+    from database.models import (
+        User, Repository, Commit, CommitFile, FileObject,
+        RepositoryTag, Branch, Activity, PendingCommit, PendingRepository, UserPermission
+    )
+    # Import models to ensure they're registered with Base
+    # Then create all tables
     Base.metadata.create_all(bind=engine)

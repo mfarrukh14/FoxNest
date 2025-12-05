@@ -34,7 +34,7 @@ class FoxClient:
         self.pack_threshold = 20  # Number of objects before creating pack
         
         # Default server configuration
-        self.server_url = "http://192.168.15.237:5000"
+        self.server_url = "http://192.168.0.11:5000"
         
         # Load server URL from config if available
         if self.is_initialized():

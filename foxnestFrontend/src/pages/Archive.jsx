@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import { FiArchive, FiRefreshCw, FiTrash2, FiDownload, FiClock, FiFolder, FiGitCommit, FiUsers, FiLoader, FiEdit3, FiUpload, FiCheck, FiX, FiFileText } from 'react-icons/fi'
+import { FiArchive, FiRefreshCw, FiTrash2, FiDownload, FiClock, FiFolder, FiGitCommit, FiUsers, FiLoader, FiEdit3, FiUpload, FiCheck, FiX, FiFileText, FiCode } from 'react-icons/fi'
 import GlassCard from '../components/ui/GlassCard'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
+import CodeEditor from '../components/CodeEditor'
 import api from '../utils/api'
 
 const Archive = () => {
@@ -16,6 +17,10 @@ const Archive = () => {
     tested: false
   })
   const [uploadingManual, setUploadingManual] = useState(false)
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, repo: null })
+  const [deleting, setDeleting] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [editorRepo, setEditorRepo] = useState(null)
 
   useEffect(() => {
     fetchRepositories()
@@ -28,7 +33,7 @@ const Archive = () => {
       
       // First, let's create sample data if none exists
       try {
-        await fetch('http://192.168.15.237:5000/api/admin/create-sample-data', {
+        await fetch('http://192.168.0.11:5000/api/admin/create-sample-data', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -46,14 +51,36 @@ const Archive = () => {
         const archivedRepos = response.repositories.filter(repo => repo.is_archived === true)
         
         // Transform server data to match our component expectations
-        const transformedRepos = api.transformRepositoryData(archivedRepos).map((repo, index) => ({
-          ...repo,
-          // Add archive-specific fields for display
+        const transformedRepos = archivedRepos.map((repo, index) => ({
+          id: repo.id,
+          name: repo.name,
+          description: repo.description || `Repository owned by ${repo.owner}`,
+          language: repo.language || 'Unknown',
+          languageColor: '#6c757d',
+          commits: repo.commits?.length || 0,
+          contributors: 1,
+          stars: 0,
+          watchers: 0,
+          branches: 1,
+          size: repo.size ? `${(repo.size / 1024).toFixed(2)} KB` : '0 KB',
+          lastUpdate: api.formatDate(repo.created_at),
+          status: 'archived',
+          visibility: repo.is_public ? 'public' : 'private',
+          tags: getTags(repo.name),
+          owner: repo.owner,
+          createdAt: repo.created_at,
+          head: repo.head,
+          is_archived: true,
+          archived_at: repo.archived_at,
           archivedDate: repo.archived_at ? new Date(repo.archived_at).toISOString().split('T')[0] : 'Unknown',
           archivedBy: repo.owner,
+          archived_reason: repo.archived_reason,
           reason: repo.archived_reason || getArchiveReason(repo.name),
-          tags: getTags(repo.name),
-          is_archived: true
+          g1_coordinator: repo.g1_coordinator,
+          tested: repo.tested || false,
+          instruction_manual_path: repo.instruction_manual_path,
+          instruction_manual_filename: repo.instruction_manual_filename,
+          has_instruction_manual: repo.has_instruction_manual
         }))
         
         setRepositories(transformedRepos)
@@ -98,9 +125,53 @@ const Archive = () => {
     // Handle restore logic here
   }
 
+  const handleOpenEditor = (e, repo) => {
+    e.stopPropagation()
+    setEditorRepo(repo)
+    setEditorOpen(true)
+  }
+
+  const handleDeleteClick = (e, repo) => {
+    e.stopPropagation()
+    setDeleteModal({ isOpen: true, repo })
+  }
+
   const handleDelete = (repoId) => {
-    console.log('Permanently deleting repository:', repoId)
-    // Handle permanent deletion logic here
+    const repo = repositories.find(r => r.id === repoId)
+    if (repo) {
+      setDeleteModal({ isOpen: true, repo })
+    }
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteModal.repo) return
+    
+    try {
+      setDeleting(true)
+      const response = await api.deleteRepository(deleteModal.repo.id)
+      
+      if (response.success) {
+        // Remove from local state
+        setRepositories(repositories.filter(r => r.id !== deleteModal.repo.id))
+        
+        // Close selected repo if it was the deleted one
+        if (selectedRepo?.id === deleteModal.repo.id) {
+          setSelectedRepo(null)
+        }
+        
+        // Close modal
+        setDeleteModal({ isOpen: false, repo: null })
+      }
+    } catch (err) {
+      console.error('Error deleting repository:', err)
+      alert(`Failed to delete repository: ${err.message}`)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const handleDeleteCancel = () => {
+    setDeleteModal({ isOpen: false, repo: null })
   }
 
   const handleEditRepo = (repo) => {
@@ -113,7 +184,7 @@ const Archive = () => {
 
   const handleSaveEdit = async () => {
     try {
-      const response = await fetch(`http://192.168.15.237:5000/api/repository/${editingRepo}/details`, {
+      const response = await fetch(`http://192.168.0.11:5000/api/repository/${editingRepo}/details`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +220,7 @@ const Archive = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`http://192.168.15.237:5000/api/repository/${repoId}/upload-manual`, {
+      const response = await fetch(`http://192.168.0.11:5000/api/repository/${repoId}/upload-manual`, {
         method: 'POST',
         body: formData
       })
@@ -170,7 +241,7 @@ const Archive = () => {
 
   const handleDownloadManual = async (repoId) => {
     try {
-      const response = await fetch(`http://192.168.15.237:5000/api/repository/${repoId}/download-manual`)
+      const response = await fetch(`http://192.168.0.11:5000/api/repository/${repoId}/download-manual`)
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)
@@ -319,7 +390,7 @@ const Archive = () => {
                   <div>By: {repo.archivedBy}</div>
                   <div className="text-orange-400">{repo.reason}</div>
                   {repo.g1_coordinator && (
-                    <div className="text-blue-400">G1 Coord: {repo.g1_coordinator}</div>
+                    <div className="text-blue-400">Team Lead: {repo.g1_coordinator}</div>
                   )}
                   <div className="flex items-center space-x-2">
                     <span>Tested:</span>
@@ -352,6 +423,16 @@ const Archive = () => {
               {/* Actions */}
               {selectedRepo?.id === repo.id && (
                 <div className="flex items-center space-x-2 pt-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={(e) => handleOpenEditor(e, repo)}
+                    className="flex items-center space-x-1"
+                    title="Open in Editor"
+                  >
+                    <FiCode className="w-3 h-3 text-blue-400" />
+                    <span>Open Editor</span>
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -490,14 +571,14 @@ const Archive = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* G1 Coordinator */}
               <div className="space-y-3">
-                <h3 className="text-lg font-semibold text-blue-400">G1 Coordinator</h3>
+                <h3 className="text-lg font-semibold text-blue-400">Team Lead</h3>
                 {editingRepo === selectedRepo.id ? (
                   <div className="space-y-2">
                     <input
                       type="text"
                       value={editForm.g1_coordinator}
                       onChange={(e) => setEditForm({...editForm, g1_coordinator: e.target.value})}
-                      placeholder="Enter G1 Coordinator name"
+                      placeholder="Enter Team Lead name"
                       className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:border-blue-500"
                     />
                     <div className="flex items-center space-x-2">
@@ -652,6 +733,93 @@ const Archive = () => {
             </div>
           </div>
         </GlassCard>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <GlassCard className="p-6 max-w-md w-full mx-4">
+            <div className="mb-4">
+              <h3 className="text-xl font-bold text-white mb-2 flex items-center">
+                <FiTrash2 className="w-6 h-6 text-red-400 mr-2" />
+                Delete Archived Repository
+              </h3>
+              <p className="text-white/70">
+                Are you sure you want to permanently delete this archived repository?
+              </p>
+            </div>
+
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+              <p className="text-white font-semibold mb-1">{deleteModal.repo?.name}</p>
+              <p className="text-white/70 text-sm mb-3">{deleteModal.repo?.description}</p>
+              <div className="flex items-center space-x-4 text-xs text-white/60">
+                <span className="flex items-center">
+                  <FiGitCommit className="w-3 h-3 mr-1" />
+                  {deleteModal.repo?.commits} commits
+                </span>
+                <span className="flex items-center">
+                  <FiUsers className="w-3 h-3 mr-1" />
+                  Owner: {deleteModal.repo?.owner}
+                </span>
+                <span className="flex items-center">
+                  <FiArchive className="w-3 h-3 mr-1" />
+                  Archived
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 mb-6">
+              <p className="text-yellow-200 text-sm font-medium flex items-start">
+                <span className="mr-2">⚠️</span>
+                <span>
+                  This action cannot be undone. All commits, files, and related data will be permanently deleted.
+                </span>
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={handleDeleteCancel}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                className="flex-1 bg-red-600/20 text-red-400 hover:bg-red-600/30"
+                onClick={handleDeleteConfirm}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <>
+                    <FiLoader className="w-4 h-4 mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <FiTrash2 className="w-4 h-4 mr-2" />
+                    Delete Permanently
+
+                  </>
+                )}
+              </Button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Code Editor Modal */}
+      {editorOpen && editorRepo && (
+        <CodeEditor
+          repoId={editorRepo.id}
+          repoName={editorRepo.name}
+          onClose={() => {
+            setEditorOpen(false)
+            setEditorRepo(null)
+          }}
+        />
       )}
     </div>
   )
