@@ -25,8 +25,8 @@ const PendingApprovals = () => {
       setError(null)
 
       const url = searchTeamLead 
-        ? `http://192.168.0.11:5000/api/pending-commits?status=pending&team_lead_username=${searchTeamLead}`
-        : 'http://192.168.0.11:5000/api/pending-commits?status=pending'
+        ? `http://192.168.88.25:5000/api/pending-commits?status=pending&team_lead_username=${searchTeamLead}`
+        : 'http://192.168.88.25:5000/api/pending-commits?status=pending'
       
       const response = await fetch(url)
       const data = await response.json()
@@ -63,7 +63,7 @@ const PendingApprovals = () => {
     }
 
     try {
-      const response = await fetch(`http://192.168.0.11:5000/api/pending-commits/${commitId}/review`, {
+      const response = await fetch(`http://192.168.88.25:5000/api/pending-commits/${commitId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

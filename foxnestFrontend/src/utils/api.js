@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://192.168.0.11:5000/api'
+const API_BASE_URL = 'http://192.168.88.25:5000/api'
 
 class FoxNestAPI {
   constructor() {

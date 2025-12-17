@@ -189,7 +189,7 @@ class UserPermission(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     repository_id = Column(String(16), ForeignKey("repositories.id"), nullable=False)
-    permission_level = Column(String(20), nullable=False)  # read, write, admin, team_lead
+    permission_level = Column(String(20), nullable=False) 
     granted_by_id = Column(Integer, ForeignKey("users.id"))
     granted_at = Column(DateTime, server_default=func.now())
     

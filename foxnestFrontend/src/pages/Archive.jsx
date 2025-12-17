@@ -33,7 +33,7 @@ const Archive = () => {
       
       // First, let's create sample data if none exists
       try {
-        await fetch('http://192.168.0.11:5000/api/admin/create-sample-data', {
+        await fetch('http://192.168.88.25:5000/api/admin/create-sample-data', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -184,7 +184,7 @@ const Archive = () => {
 
   const handleSaveEdit = async () => {
     try {
-      const response = await fetch(`http://192.168.0.11:5000/api/repository/${editingRepo}/details`, {
+      const response = await fetch(`http://192.168.88.25:5000/api/repository/${editingRepo}/details`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -220,7 +220,7 @@ const Archive = () => {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await fetch(`http://192.168.0.11:5000/api/repository/${repoId}/upload-manual`, {
+      const response = await fetch(`http://192.168.88.25:5000/api/repository/${repoId}/upload-manual`, {
         method: 'POST',
         body: formData
       })
@@ -241,7 +241,7 @@ const Archive = () => {
 
   const handleDownloadManual = async (repoId) => {
     try {
-      const response = await fetch(`http://192.168.0.11:5000/api/repository/${repoId}/download-manual`)
+      const response = await fetch(`http://192.168.88.25:5000/api/repository/${repoId}/download-manual`)
       if (response.ok) {
         const blob = await response.blob()
         const url = window.URL.createObjectURL(blob)

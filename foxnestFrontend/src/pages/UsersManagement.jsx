@@ -42,7 +42,7 @@ const UsersManagement = () => {
       setError(null)
 
       // Fetch users
-      const usersResponse = await fetch('http://192.168.0.11:5000/api/users')
+      const usersResponse = await fetch('http://192.168.88.25:5000/api/users')
       const usersData = await usersResponse.json()
 
       // Fetch repositories
@@ -77,7 +77,7 @@ const UsersManagement = () => {
         return
       }
 
-      const response = await fetch('http://192.168.0.11:5000/api/users/create', {
+      const response = await fetch('http://192.168.88.25:5000/api/users/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser)
@@ -105,7 +105,7 @@ const UsersManagement = () => {
 
   const handleAddPermission = async () => {
     try {
-      const response = await fetch('http://192.168.0.11:5000/api/permissions/create', {
+      const response = await fetch('http://192.168.88.25:5000/api/permissions/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(permissionForm)
@@ -126,7 +126,7 @@ const UsersManagement = () => {
 
     try {
       const response = await fetch(
-        `http://192.168.0.11:5000/api/permissions/revoke?username=${username}&repo_id=${repoId}`,
+        `http://192.168.88.25:5000/api/permissions/revoke?username=${username}&repo_id=${repoId}`,
         { method: 'DELETE' }
       )
 
@@ -152,7 +152,7 @@ const UsersManagement = () => {
 
   const handleUpdatePermission = async () => {
     try {
-      const response = await fetch('http://192.168.0.11:5000/api/permissions/update', {
+      const response = await fetch('http://192.168.88.25:5000/api/permissions/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editPermissionForm)
@@ -174,7 +174,7 @@ const UsersManagement = () => {
     if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) return
 
     try {
-      const response = await fetch(`http://192.168.0.11:5000/api/users/${username}`, {
+      const response = await fetch(`http://192.168.88.25:5000/api/users/${username}`, {
         method: 'DELETE'
       })
 
@@ -197,7 +197,7 @@ const UsersManagement = () => {
 
   const fetchUserPermissions = async (username) => {
     try {
-      const response = await fetch(`http://192.168.0.11:5000/api/permissions/user/${username}`)
+      const response = await fetch(`http://192.168.88.25:5000/api/permissions/user/${username}`)
       const data = await response.json()
 
       if (data.success) {

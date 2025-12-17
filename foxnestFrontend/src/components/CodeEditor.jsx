@@ -18,7 +18,7 @@ const CodeEditor = ({ repoId, repoName, onClose }) => {
   const fetchRepositoryFiles = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`http://192.168.0.11:5000/api/repository/${repoId}/files`)
+      const response = await fetch(`http://192.168.88.25:5000/api/repository/${repoId}/files`)
       const data = await response.json()
 
       if (data.success) {

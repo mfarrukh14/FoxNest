@@ -4,6 +4,7 @@ import GlassCard from '../components/ui/GlassCard'
 import Badge from '../components/ui/Badge'
 import Button from '../components/ui/Button'
 import CodeEditor from '../components/CodeEditor'
+import CommitHistoryModal from '../components/CommitHistoryModal'
 import { useRepositories, useServerHealth } from '../hooks/useApi'
 import api from '../utils/api'
 
@@ -17,6 +18,7 @@ const Repositories = () => {
   const [deleting, setDeleting] = useState(false)
   const [editorOpen, setEditorOpen] = useState(false)
   const [editorRepo, setEditorRepo] = useState(null)
+  const [commitModalRepo, setCommitModalRepo] = useState(null)
 
   useEffect(() => {
     fetchRepositories()
@@ -98,6 +100,11 @@ const Repositories = () => {
 
   const handleRepoClick = (repo) => {
     setSelectedRepo(selectedRepo?.id === repo.id ? null : repo)
+  }
+
+  const handleViewCommits = (e, repo) => {
+    e.stopPropagation()
+    setCommitModalRepo(repo)
   }
 
   const filteredRepos = repositories.filter(repo => repo.status === 'active')
@@ -221,6 +228,9 @@ const Repositories = () => {
                 <p className="text-sm text-white/70 line-clamp-2">{repo.description}</p>
               </div>
               <div className="flex items-center space-x-1 ml-4">
+                <Button variant="ghost" size="sm" onClick={(e) => handleViewCommits(e, repo)} title="View commits">
+                  <FiGitCommit className="w-4 h-4 text-green-400" />
+                </Button>
                 <Button variant="ghost" size="sm" onClick={(e) => handleOpenEditor(e, repo)} title="Open in Editor">
                   <FiCode className="w-4 h-4 text-blue-400" />
                 </Button>
@@ -449,6 +459,13 @@ const Repositories = () => {
             setEditorOpen(false)
             setEditorRepo(null)
           }}
+        />
+      )}
+
+      {commitModalRepo && (
+        <CommitHistoryModal
+          repo={commitModalRepo}
+          onClose={() => setCommitModalRepo(null)}
         />
       )}
     </div>
