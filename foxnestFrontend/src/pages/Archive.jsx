@@ -324,7 +324,7 @@ const Archive = () => {
         <GlassCard className="p-4 border-green-500/30 bg-green-500/10">
           <div className="flex items-center space-x-2 text-green-400">
             <span>✅</span>
-            <span>Connected to FoxNest Server - Showing live data</span>
+            <span>Connected to Zanbeel Server - Showing live data</span>
           </div>
         </GlassCard>
       )}
